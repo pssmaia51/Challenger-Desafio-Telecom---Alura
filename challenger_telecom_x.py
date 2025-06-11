@@ -75,3 +75,134 @@ plt.xticks(rotation=30)
 plt.tight_layout()
 plt.show()
 
+import pandas as pd
+import seaborn as sns
+import matplotlib.pyplot as plt
+from matplotlib.backends.backend_pdf import PdfPages
+import json
+
+# Carregando os dados
+with open("TelecomX_Data.json") as f:
+    raw_data = json.load(f)
+
+df = pd.json_normalize(raw_data, sep="_")
+df["account_Charges_Total"] = pd.to_numeric(df["account_Charges_Total"], errors="coerce")
+df["account_Charges_Monthly"] = pd.to_numeric(df["account_Charges_Monthly"], errors="coerce")
+
+# Criar arquivo PDF
+with PdfPages("Relatorio_Analise_TelecomX.pdf") as pdf:
+
+    # Página 1: Distribuição de Churn
+    plt.figure(figsize=(10, 6))
+    sns.countplot(data=df, x="Churn", palette="Set2")
+    plt.title("Distribuição de Clientes - Churn (Evasão)")
+    pdf.savefig()
+    plt.close()
+
+    # Página 2: Gasto Total vs Churn
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(data=df, x="Churn", y="account_Charges_Total", palette="Set3")
+    plt.title("Gasto Total por Cliente vs Churn")
+    pdf.savefig()
+    plt.close()
+
+    # Página 3: Tempo de Contrato (Tenure) vs Churn
+    plt.figure(figsize=(10, 6))
+    sns.boxplot(data=df, x="Churn", y="customer_tenure", palette="Set1")
+    plt.title("Tempo de Contrato (Tenure) vs Churn")
+    pdf.savefig()
+    plt.close()
+
+    # Página 4: Churn por Tipo de Contrato
+    plt.figure(figsize=(10, 6))
+    sns.countplot(data=df, x="account_Contract", hue="Churn", palette="pastel")
+    plt.title("Churn por Tipo de Contrato")
+    plt.xticks(rotation=30)
+    pdf.savefig()
+    plt.close()
+
+    # Página 5: Tabela - Estatísticas por Churn
+    fig, ax = plt.subplots(figsize=(10, 4))
+    stats = df.groupby("Churn")[["account_Charges_Total", "customer_tenure"]].mean().round(2)
+    ax.axis('tight')
+    ax.axis('off')
+    table = ax.table(cellText=stats.values,
+                     colLabels=stats.columns,
+                     rowLabels=stats.index,
+                     cellLoc='center',
+                     loc='center')
+    plt.title("Médias de Gasto Total e Tempo de Contrato por Churn")
+    pdf.savefig()
+    plt.close()
+
+print("✅ Relatório PDF gerado com sucesso como 'Relatorio_Analise_TelecomX.pdf'")
+
+from google.colab import files
+files.download("Relatorio_Analise_TelecomX.pdf")
+
+# Instalar a biblioteca
+!pip install fpdf
+
+# Importar após instalar
+from fpdf import FPDF
+
+# Criar classe PDF
+class PDF(FPDF):
+    def header(self):
+        self.set_font("Arial", "B", 14)
+        self.cell(0, 10, "Análise de Evasão de Clientes - Telecom X", ln=True, align="C")
+        self.ln(5)
+
+    def chapter_title(self, title):
+        self.set_font("Arial", "B", 12)
+        self.cell(0, 10, title, ln=True)
+        self.ln(2)
+
+    def chapter_body(self, body):
+        self.set_font("Arial", "", 11)
+        self.multi_cell(0, 7, body)
+        self.ln()
+
+# Criar e popular o PDF
+pdf = PDF()
+pdf.add_page()
+
+pdf.chapter_title("Objetivo")
+pdf.chapter_body("A Telecom X enfrenta alta taxa de evasão de clientes (churn)...")
+
+pdf.chapter_title("ETL - Extração, Transformação e Carga")
+pdf.chapter_body(
+    "- Extração via JSON com estrutura aninhada\n"
+    "- Transformação usando pandas.json_normalize\n"
+    "- Conversão de colunas numéricas (ex.: Charges_Total)\n"
+    "- Limpeza de dados e padronização de colunas"
+)
+
+pdf.chapter_title("EDA - Análise Exploratória de Dados")
+pdf.chapter_body(
+    "1. A maioria dos clientes permanece, mas há evasão significativa.\n"
+    "2. Clientes que evadem têm menor gasto total.\n"
+    "3. Clientes com pouco tempo de contrato (tenure) têm maior risco de churn.\n"
+    "4. Contratos mensais apresentam a maior taxa de cancelamento."
+)
+
+pdf.chapter_title("Conclusões")
+pdf.chapter_body(
+    "- Clientes com pouco tempo de permanência e contratos mensais têm maior probabilidade de churn.\n"
+    "- Gasto acumulado baixo reforça o risco de cancelamento precoce."
+)
+
+pdf.chapter_title("Recomendações Estratégicas")
+pdf.chapter_body(
+    "1. Incentivar planos anuais com benefícios.\n"
+    "2. Focar campanhas de retenção nos primeiros meses.\n"
+    "3. Implementar ações segmentadas com base no perfil do cliente.\n"
+    "4. Monitorar engajamento com os serviços."
+)
+
+# Salvar o arquivo
+pdf.output("Relatorio_TelecomX_Churn.pdf")
+
+# Baixar no Colab
+from google.colab import files
+files.download("Relatorio_TelecomX_Churn.pdf")
